@@ -1,8 +1,8 @@
-# Zyphora 💬
+# NexChat 💬
 
 A modern, real-time messaging platform built with Next.js, Node.js, Socket.IO, and Firebase — inspired by WhatsApp.
 
-![Zyphora Chat UI](https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)
+![NexChat Chat UI](https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)
 
 ---
 

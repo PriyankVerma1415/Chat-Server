@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zyphora",
-  description: "Zyphora - A modern real-time messaging platform.",
+  title: "NexChat",
+  description: "NexChat - A modern real-time messaging platform.",
 };
 
 export default function RootLayout({

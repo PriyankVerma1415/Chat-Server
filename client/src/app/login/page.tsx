@@ -38,25 +38,63 @@ export default function LoginPage() {
   }, [resendTimer]);
 
   useEffect(() => {
-    // Clear recaptcha on mount (e.g. after logout) and unmount
-    clearRecaptcha();
-    return () => clearRecaptcha();
+    console.log("[Firebase] Checking Config", {
+      apiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+    });
+
+    const setupRecaptcha = () => {
+      if (!document.getElementById("recaptcha-container")) {
+        console.error("[Firebase] recaptcha-container not found in DOM");
+        return;
+      }
+
+      try {
+        if ((window as any).recaptchaVerifier) {
+          console.log("[Firebase] Verifier exists, clearing existing instance...");
+          try {
+            (window as any).recaptchaVerifier.clear();
+          } catch (e) {
+            console.warn("[Firebase] Error clearing existing verifier", e);
+          }
+          (window as any).recaptchaVerifier = null;
+        }
+
+        console.log("[Firebase] Initializing new RecaptchaVerifier...");
+        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+          size: "invisible",
+          callback: () => {
+            console.log("[Firebase] reCAPTCHA solved successfully");
+          },
+          "expired-callback": () => {
+            console.log("[Firebase] reCAPTCHA expired");
+            setError("reCAPTCHA expired. Please try again.");
+          }
+        });
+        
+        (window as any).recaptchaVerifier = verifier;
+        console.log("[Firebase] Verifier initialized successfully");
+      } catch (err) {
+        console.error("[Firebase] Error during RecaptchaVerifier setup:", err);
+      }
+    };
+
+    setupRecaptcha();
+
+    return () => {
+      if ((window as any).recaptchaVerifier) {
+        console.log("[Firebase] Cleaning up verifier on unmount...");
+        try {
+          (window as any).recaptchaVerifier.clear();
+        } catch (e) {
+          console.warn("[Firebase] Error during cleanup", e);
+        }
+        (window as any).recaptchaVerifier = null;
+      }
+    };
   }, []);
-
-  const setupRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-      });
-    }
-  };
-
-  const clearRecaptcha = () => {
-    if (window.recaptchaVerifier) {
-      window.recaptchaVerifier.clear();
-      window.recaptchaVerifier = undefined;
-    }
-  };
 
   const requestOTP = async (e?: FormEvent) => {
     if (e) e.preventDefault();
@@ -65,15 +103,42 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      setupRecaptcha();
-      const appVerifier = window.recaptchaVerifier;
+      console.log("[Firebase] Starting signInWithPhoneNumber execution...");
+      const appVerifier = (window as any).recaptchaVerifier;
+      if (!appVerifier) {
+        throw new Error("reCAPTCHA verifier is not initialized. Please refresh the page.");
+      }
+      
       const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+      console.log("[Firebase] confirmationResult created successfully");
+      
       setConfirmationResult(confirmation);
       setStep("OTP");
       setResendTimer(60);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Failed to send OTP. Please try again.");
+      console.error("[Firebase] requestOTP Error:", err);
+      if (err.code === "auth/invalid-app-credential") {
+        setError("Invalid app credential. Please verify Firebase configuration and authorized domains.");
+      } else if (err.code === "auth/too-many-requests") {
+        setError("Too many requests. Please try again later.");
+      } else if (err.code === "auth/quota-exceeded") {
+        setError("SMS quota exceeded. Please contact support.");
+      } else if (err.code === "auth/captcha-check-failed") {
+        setError("reCAPTCHA verification failed. Please refresh the page and try again.");
+      } else {
+        setError(err.message || "Failed to send OTP. Please try again.");
+      }
+      
+      // If error occurs, we might need to reset the verifier
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+          (window as any).recaptchaVerifier = null;
+          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+            size: "invisible"
+          });
+        } catch (e) {}
+      }
     } finally {
       setLoading(false);
     }
@@ -116,7 +181,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 items-center">
           <div className="w-24 h-24 flex items-center justify-center mb-2">
-            <Image src="/logo.png" alt="Zyphora Logo" width={96} height={96} className="object-contain rounded-2xl" priority />
+            <Image src="/nexchat-logo.png" alt="NexChat Logo" width={96} height={96} className="object-contain rounded-2xl" priority />
           </div>
           <CardTitle className="text-2xl font-bold">
             {step === "PHONE" ? "Enter your phone number" : "Verify your number"}
@@ -163,7 +228,6 @@ export default function LoginPage() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
-              <div id="recaptcha-container"></div>
             </CardContent>
             <CardFooter>
               <Button className="w-full" type="submit" disabled={loading || !phoneNumber}>
@@ -196,7 +260,9 @@ export default function LoginPage() {
                 <button 
                   type="button" 
                   onClick={() => {
-                    clearRecaptcha();
+                    if ((window as any).recaptchaVerifier) {
+                      try { (window as any).recaptchaVerifier.clear(); (window as any).recaptchaVerifier = null; } catch (e) {}
+                    }
                     setStep("PHONE");
                   }}
                   className="hover:underline text-primary"
@@ -216,6 +282,7 @@ export default function LoginPage() {
             </CardFooter>
           </form>
         )}
+        <div id="recaptcha-container"></div>
       </Card>
     </div>
   );

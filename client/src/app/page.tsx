@@ -23,9 +23,15 @@ export default function Home() {
 
   return (
     <div className="flex h-screen items-center justify-center bg-background">
-      <div className="animate-pulse flex flex-col items-center">
-        <div className="h-12 w-12 bg-primary/20 rounded-full mb-4"></div>
-        <div className="h-4 w-32 bg-secondary rounded"></div>
+      <div className="flex flex-col items-center space-y-6">
+        <div className="relative w-20 h-20 animate-pulse overflow-hidden rounded-2xl flex items-center justify-center">
+          <img 
+            src="/nexchat-logo.png" 
+            alt="NexChat Logo" 
+            className="w-full h-full object-cover scale-[1.35]"
+          />
+        </div>
+        <h1 className="text-xl font-bold text-muted-foreground animate-pulse">Loading NexChat...</h1>
       </div>
     </div>
   );

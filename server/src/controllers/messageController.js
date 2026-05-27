@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
+const Group = require('../models/Group');
 const User = require('../models/User');
 
 // Fetch all messages for a specific conversation
@@ -28,13 +29,22 @@ const getMessages = async (req, res) => {
         path: 'replyTo',
         select: 'message messageType mediaUrl fileName senderId isDeleted',
         populate: { path: 'senderId', select: 'username' }
-      });
+      })
+      .populate('seenBy', 'username avatar phoneNumber');
 
-    // Mark unread messages as read
+    // Mark unread messages as read (1-on-1 chats)
     await Message.updateMany(
       { conversationId: conversation._id, receiverId: currentUserId, status: { $ne: 'read' } },
       { $set: { status: 'read' } }
     );
+
+    // Track group reads
+    if (conversation.isGroup) {
+      await Message.updateMany(
+        { conversationId: conversation._id, senderId: { $ne: currentUserId } },
+        { $addToSet: { seenBy: currentUserId } }
+      );
+    }
 
     res.json(messages);
   } catch (error) {
@@ -45,26 +55,41 @@ const getMessages = async (req, res) => {
 // Send a message
 const sendMessage = async (req, res) => {
   try {
-    const { receiverId, message, messageType, mediaUrl, fileName, fileSize, duration, replyTo } = req.body;
+    const { receiverId, groupId, message, messageType, mediaUrl, fileName, fileSize, duration, replyTo } = req.body;
     const senderId = req.user._id;
 
-    if (!receiverId || (!message && !mediaUrl)) {
-      return res.status(400).json({ message: 'Please provide receiver and message/media' });
+    if (!receiverId && !groupId) {
+      return res.status(400).json({ message: 'Please provide receiver or group' });
+    }
+    if (!message && !mediaUrl) {
+      return res.status(400).json({ message: 'Please provide message or media' });
     }
 
-    let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId] },
-    });
+    let conversation = null;
+    let group = null;
 
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [senderId, receiverId],
+    if (groupId) {
+      group = await Group.findById(groupId);
+      if (!group) return res.status(404).json({ message: 'Group not found' });
+      if (!group.members.some(m => m.user.toString() === senderId.toString())) {
+        return res.status(403).json({ message: 'Not a member of this group' });
+      }
+    } else {
+      conversation = await Conversation.findOne({
+        participants: { $all: [senderId, receiverId] },
       });
+
+      if (!conversation) {
+        conversation = await Conversation.create({
+          participants: [senderId, receiverId],
+        });
+      }
     }
 
     const newMessage = await Message.create({
       senderId,
-      receiverId,
+      receiverId: receiverId || undefined,
+      groupId: groupId || undefined,
       message,
       messageType: messageType || 'text',
       mediaUrl,
@@ -72,14 +97,21 @@ const sendMessage = async (req, res) => {
       fileSize,
       duration,
       replyTo,
-      conversationId: conversation._id,
+      conversationId: conversation ? conversation._id : undefined,
     });
 
-    conversation.lastMessage = newMessage._id;
-    await conversation.save();
+    if (groupId) {
+      group.lastMessage = newMessage._id;
+      await group.save();
+    } else {
+      conversation.lastMessage = newMessage._id;
+      await conversation.save();
+    }
 
     await newMessage.populate('senderId', 'username avatar email');
-    await newMessage.populate('receiverId', 'username avatar email');
+    if (receiverId) {
+      await newMessage.populate('receiverId', 'username avatar email');
+    }
     if (replyTo) {
       await newMessage.populate({
         path: 'replyTo',
@@ -106,7 +138,19 @@ const getConversations = async (req, res) => {
       .populate('lastMessage')
       .sort({ updatedAt: -1 });
 
-    res.json(conversations);
+    const conversationsWithUnread = await Promise.all(conversations.map(async (conv) => {
+      const unreadCount = await Message.countDocuments({
+        conversationId: conv._id,
+        receiverId: currentUserId,
+        status: { $ne: 'read' }
+      });
+      return {
+        ...conv.toObject(),
+        unreadCount
+      };
+    }));
+
+    res.json(conversationsWithUnread);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

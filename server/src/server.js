@@ -12,6 +12,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 const socketHandler = require('./socket/socketHandler');
 
 connectDB();
@@ -25,7 +26,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
 const authLimiter = rateLimit({
@@ -38,6 +40,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/contacts', contactRoutes);
+app.use('/api/groups', groupRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

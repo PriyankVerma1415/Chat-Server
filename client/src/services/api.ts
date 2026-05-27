@@ -22,6 +22,7 @@ api.interceptors.response.use(
     if (
       originalRequest.url === '/auth/login' ||
       originalRequest.url === '/auth/register' ||
+      originalRequest.url === '/auth/verify-phone' ||
       originalRequest.url === '/auth/refresh'
     ) {
       return Promise.reject(error);

@@ -8,6 +8,7 @@ import IncomingCallModal from "./IncomingCallModal";
 import ActiveCallUI from "./ActiveCallUI";
 import { PhoneOff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ringtonePlayer } from "@/lib/ringtone";
 
 const iceServers = {
   iceServers: [
@@ -27,6 +28,16 @@ export default function CallOverlay() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+
+  // Play ringtone when ringing
+  useEffect(() => {
+    if ((isReceivingCall && !isCallActive) || (isCalling && !isCallActive)) {
+      ringtonePlayer.start();
+    } else {
+      ringtonePlayer.stop();
+    }
+    return () => ringtonePlayer.stop();
+  }, [isReceivingCall, isCalling, isCallActive]);
 
   // Clean up streams and connection
   const cleanup = () => {
@@ -245,8 +256,8 @@ export default function CallOverlay() {
 
       {isCallActive && (
         <ActiveCallUI 
-          peer={(isCalling ? callee : caller)!} 
-          callType={(isCalling ? outgoingCallType : incomingCallType)!} 
+          peer={(caller || callee)!} 
+          callType={(incomingCallType || outgoingCallType)!} 
           localStream={localStream} 
           remoteStream={remoteStream} 
           onEndCall={handleEndCall} 

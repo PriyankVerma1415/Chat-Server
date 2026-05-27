@@ -84,7 +84,11 @@ const verifyPhoneAuth = async (req, res) => {
     });
   } catch (error) {
     console.error('Firebase Auth Error:', error);
-    res.status(401).json({ message: 'Unauthorized: Invalid Firebase token' });
+    if (error.code && error.code.startsWith('auth/')) {
+      res.status(401).json({ message: 'Unauthorized: Invalid Firebase token' });
+    } else {
+      res.status(500).json({ message: error.message || 'Internal Server Error during authentication' });
+    }
   }
 };
 

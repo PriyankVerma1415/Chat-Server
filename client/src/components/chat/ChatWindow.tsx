@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCallStore } from "@/store/useCallStore";
+import { useGroupCallStore } from "@/store/useGroupCallStore";
 import { socket } from "@/services/socket";
 import api from "@/services/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import dynamic from 'next/dynamic';
 import { format, isToday, isYesterday } from "date-fns";
+import GroupInfoPanel from "./GroupInfoPanel";
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -42,6 +44,7 @@ export default function ChatWindow() {
   } = useChatStore();
   const { user } = useAuthStore();
   const { setOutgoingCall } = useCallStore();
+  const { activeGroupCallsList, joinCall, isCallActive: isGroupCallActive } = useGroupCallStore();
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -61,27 +64,53 @@ export default function ChatWindow() {
   const audioChunksRef = useRef<BlobPart[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const currentGroupCall = activeGroupCallsList.find(c => c.groupId === activeConversation?._id);
+
+  const handleJoinGroupCall = async (video: boolean) => {
+    if (!activeConversation) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
+      socket.emit("join_group_call", { groupId: activeConversation._id });
+      joinCall(activeConversation._id, stream);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to access camera/microphone.");
+    }
+  };
+
   useEffect(() => {
-    if (activeUser) {
+    if (activeConversation?.isGroup) {
+      fetchMessages(activeConversation._id);
+      socket.emit("join_chat", activeConversation._id);
+      socket.emit("mark_read", { groupId: activeConversation._id });
+      markMessagesAsRead(activeConversation._id);
+    } else if (activeUser) {
       fetchMessages(activeUser._id);
       socket.emit("join_chat", activeConversation?._id || activeUser._id);
       if (activeConversation) {
         socket.emit("mark_read", { conversationId: activeConversation._id, senderId: activeUser._id });
+        markMessagesAsRead(activeConversation._id);
       }
     } else {
       setMessages([]);
     }
-  }, [activeUser, activeConversation, fetchMessages, setMessages]);
+  }, [activeUser, activeConversation, fetchMessages, setMessages, markMessagesAsRead]);
 
   useEffect(() => {
     const messageHandler = (msg: any) => {
-      if (activeConversation && msg.conversationId === activeConversation._id) {
-        addMessage(msg);
+      // Always add the message to the store to update conversations list and unread count
+      addMessage(msg);
+
+      const isGroupMessage = !!msg.groupId;
+      if (isGroupMessage && activeConversation?.isGroup && msg.groupId === activeConversation._id) {
+        if (msg.senderId._id !== user?._id) {
+          socket.emit("mark_read", { groupId: activeConversation._id });
+        }
+      } else if (!isGroupMessage && activeConversation && msg.conversationId === activeConversation._id) {
         socket.emit("mark_read", { conversationId: activeConversation._id, senderId: msg.senderId._id || msg.senderId });
-      } else if (!activeConversation && msg.senderId._id === activeUser?._id) {
-        addMessage(msg);
+      } else if (!isGroupMessage && !activeConversation && msg.senderId._id === activeUser?._id) {
         socket.emit("mark_read", { conversationId: msg.conversationId, senderId: msg.senderId._id || msg.senderId });
-      } else {
+      } else if (!isGroupMessage) {
         socket.emit("mark_delivered", { messageId: msg._id, senderId: msg.senderId._id || msg.senderId });
       }
     };
@@ -91,8 +120,14 @@ export default function ChatWindow() {
     };
 
     const readHandler = ({ conversationId }: { conversationId: string }) => {
-      if (activeConversation && activeConversation._id === conversationId) {
+      if (activeConversation && activeConversation._id === conversationId && !activeConversation.isGroup) {
         markMessagesAsRead(conversationId);
+      }
+    };
+
+    const groupReadHandler = ({ groupId, messageIds, user }: { groupId: string, messageIds: string[], user: any }) => {
+      if (activeConversation?.isGroup && activeConversation._id === groupId) {
+        useChatStore.getState().addGroupMessageSeenBy(messageIds, user);
       }
     };
 
@@ -113,6 +148,7 @@ export default function ChatWindow() {
     socket.on("message_received", messageHandler);
     socket.on("message_status_update", statusHandler);
     socket.on("messages_read", readHandler);
+    socket.on("group_messages_read", groupReadHandler);
     socket.on("message_deleted", deleteHandler);
     socket.on("chat_cleared", clearChatHandler);
     socket.on("message_edited", editMessageHandler);
@@ -123,11 +159,14 @@ export default function ChatWindow() {
       socket.off("message_received", messageHandler);
       socket.off("message_status_update", statusHandler);
       socket.off("messages_read", readHandler);
+      socket.off("group_messages_read", groupReadHandler);
       socket.off("message_deleted", deleteHandler);
       socket.off("chat_cleared", clearChatHandler);
       socket.off("message_edited", editMessageHandler);
       socket.off("typing");
       socket.off("stop_typing");
+      socket.off("group_typing");
+      socket.off("stop_group_typing");
     };
   }, [activeConversation, activeUser, addMessage, updateMessageStatus, markMessagesAsRead, removeMessage]);
 
@@ -154,7 +193,7 @@ export default function ChatWindow() {
   };
 
   const handleFileSelect = async (file: File, type: 'image' | 'video' | 'document') => {
-    if (!activeUser) return;
+    if (!activeUser && !activeConversation?.isGroup) return;
     
     // Check sizes
     const sizeMB = file.size / (1024 * 1024);
@@ -176,7 +215,7 @@ export default function ChatWindow() {
   };
 
   const confirmFileUpload = () => {
-    if (!pendingFile || !activeUser) return;
+    if (!pendingFile || (!activeUser && !activeConversation?.isGroup)) return;
     const { file, type } = pendingFile;
 
     setIsUploading(true);
@@ -199,8 +238,7 @@ export default function ChatWindow() {
         setUploadProgress(0);
 
         try {
-          const payload = {
-            receiverId: activeUser._id,
+          const payload: any = {
             mediaUrl: downloadURL,
             messageType: type,
             fileName: file.name,
@@ -208,6 +246,11 @@ export default function ChatWindow() {
             message: newMessage,
             replyTo: replyingToMessage?._id
           };
+          if (activeConversation?.isGroup) {
+            payload.groupId = activeConversation._id;
+          } else {
+            payload.receiverId = activeUser?._id;
+          }
           
           const { data } = await api.post("/messages", payload);
           addMessage(data);
@@ -233,7 +276,7 @@ export default function ChatWindow() {
   };
 
   const uploadAudio = (blob: Blob) => {
-    if (!activeUser) return;
+    if (!activeUser && !activeConversation?.isGroup) return;
     setIsUploading(true);
     setUploadProgress(0);
     const duration = recordingDuration;
@@ -254,15 +297,21 @@ export default function ChatWindow() {
         setUploadProgress(0);
 
         try {
-          const { data } = await api.post("/messages", {
-            receiverId: activeUser._id,
+          const payload: any = {
             message: "",
             messageType: "voice",
             mediaUrl: downloadURL,
             fileSize: blob.size,
             duration: duration,
             replyTo: replyingToMessage?._id
-          });
+          };
+          if (activeConversation?.isGroup) {
+            payload.groupId = activeConversation._id;
+          } else {
+            payload.receiverId = activeUser?._id;
+          }
+
+          const { data } = await api.post("/messages", payload);
           addMessage(data);
           socket.emit("new_message", data);
           setReplyingToMessage(null);
@@ -323,22 +372,27 @@ export default function ChatWindow() {
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim() || !activeUser) return;
+    if (!newMessage.trim() || (!activeUser && !activeConversation?.isGroup)) return;
 
     if (editingMessage) {
       const textToEdit = newMessage;
       setNewMessage("");
-      await editMessageAction(editingMessage._id, textToEdit, activeUser._id);
+      await editMessageAction(editingMessage._id, textToEdit, activeUser?._id, activeConversation?.isGroup ? activeConversation._id : undefined);
       setEditingMessage(null);
       return;
     }
 
-    const messageData = {
-      receiverId: activeUser._id,
+    const messageData: any = {
       message: newMessage,
       messageType: "text",
       replyTo: replyingToMessage?._id
     };
+    
+    if (activeConversation?.isGroup) {
+      messageData.groupId = activeConversation._id;
+    } else {
+      messageData.receiverId = activeUser?._id;
+    }
 
     setNewMessage("");
     setReplyingToMessage(null);
@@ -369,7 +423,7 @@ export default function ChatWindow() {
     }
   };
 
-  if (!activeUser) {
+  if (!activeUser && !activeConversation?.isGroup) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-background/50">
         <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mb-4">
@@ -391,52 +445,65 @@ export default function ChatWindow() {
         <Dialog>
           <DialogTrigger className="flex items-center gap-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 rounded-md transition-colors -ml-2 select-none outline-none border-none bg-transparent text-left">
             <Avatar>
-              <AvatarImage src={activeUser.avatar || undefined} />
-              <AvatarFallback>{(activeUser.username || activeUser.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={(activeConversation?.isGroup ? activeConversation.avatar : activeUser?.avatar) || undefined} />
+              <AvatarFallback>{(activeConversation?.isGroup ? activeConversation.name : (activeUser?.username || activeUser?.phoneNumber || '?')).charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
               <div className="text-left">
-                <h3 className="font-semibold text-sm">{activeUser.username || activeUser.phoneNumber}</h3>
+                <h3 className="font-semibold text-sm">{activeConversation?.isGroup ? activeConversation.name : (activeUser?.username || activeUser?.phoneNumber)}</h3>
                 <p className="text-xs text-muted-foreground">
-                  {isTyping ? "typing..." : activeUser.onlineStatus === "online" ? "Online" : formatLastSeen(activeUser.lastSeen)}
+                  {isTyping ? "typing..." : activeConversation?.isGroup ? `${activeConversation.members?.length || 0} participants` : (activeUser?.onlineStatus === "online" ? "Online" : formatLastSeen(activeUser?.lastSeen))}
                 </p>
               </div>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Contact Info</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col items-center gap-4 py-6">
-              <Avatar className="w-32 h-32">
-                <AvatarImage src={activeUser.avatar || undefined} />
-                <AvatarFallback className="text-5xl">{(activeUser.username || activeUser.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="text-center">
-                <h2 className="text-2xl font-semibold">{activeUser.username || activeUser.phoneNumber}</h2>
-                <p className="text-muted-foreground">{activeUser.phoneNumber}</p>
-              </div>
-            </div>
-            
-            <div className="bg-secondary/50 rounded-lg p-4 space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold text-muted-foreground mb-1">About</h4>
-                <p>{activeUser.bio || "Hey there! I am using Zyphora."}</p>
-              </div>
-              
-              {activeUser.email && (
-                <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-1">Email</h4>
-                  <p>{activeUser.email}</p>
+          <DialogContent className={`sm:max-w-md ${activeConversation?.isGroup ? 'p-0 sm:max-w-[400px] h-[80vh]' : ''}`}>
+            {activeConversation?.isGroup ? (
+              <GroupInfoPanel group={activeConversation} />
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Contact Info</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <Avatar className="w-32 h-32">
+                    <AvatarImage src={activeUser?.avatar || undefined} />
+                    <AvatarFallback className="text-5xl">{(activeUser?.username || activeUser?.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-semibold">{activeUser?.username || activeUser?.phoneNumber}</h2>
+                    <p className="text-muted-foreground">{activeUser?.phoneNumber}</p>
+                  </div>
                 </div>
-              )}
-            </div>
+                
+                <div className="bg-secondary/50 rounded-lg p-4 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-1">About</h4>
+                    <p>{activeUser?.bio || "Hey there! I am using NexChat."}</p>
+                  </div>
+                  
+                  {activeUser?.email && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-1">Email</h4>
+                      <p>{activeUser?.email}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
         <div className="flex items-center gap-2 text-muted-foreground">
+          {activeConversation?.isGroup && currentGroupCall && !isGroupCallActive && (
+             <Button onClick={() => handleJoinGroupCall(true)} className="mr-2 bg-green-500 hover:bg-green-600 text-white animate-pulse" size="sm">
+               Join Call
+             </Button>
+          )}
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={() => {
-              if (activeUser) {
+              if (activeConversation?.isGroup) {
+                handleJoinGroupCall(false);
+              } else if (activeUser) {
                 setOutgoingCall({
                   _id: activeUser._id,
                   username: activeUser.username,
@@ -452,7 +519,9 @@ export default function ChatWindow() {
             variant="ghost" 
             size="icon"
             onClick={() => {
-              if (activeUser) {
+              if (activeConversation?.isGroup) {
+                handleJoinGroupCall(true);
+              } else if (activeUser) {
                 setOutgoingCall({
                   _id: activeUser._id,
                   username: activeUser.username,
@@ -472,8 +541,8 @@ export default function ChatWindow() {
               <DropdownMenuItem 
                 onClick={() => {
                   if (window.confirm("Are you sure you want to clear this chat? This will delete all messages for you.")) {
-                    if (activeConversation && activeUser) {
-                      clearChat(activeConversation._id, activeUser._id);
+                    if (activeConversation) {
+                      clearChat(activeConversation._id, activeUser?._id, activeConversation.isGroup);
                     }
                   }
                 }} 
@@ -503,6 +572,7 @@ export default function ChatWindow() {
                 key={msg._id || idx}
                 message={msg}
                 isOwn={msg.senderId._id === user?._id || msg.senderId === user?._id}
+                isGroup={activeConversation?.isGroup}
               />
             ))}
             <div ref={scrollRef} />
