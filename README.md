@@ -8,7 +8,7 @@ A modern, real-time messaging platform built with Next.js, Node.js, Socket.IO, a
 
 ## ✨ Features
 
-- 📱 **Phone Number Authentication** — OTP-based login via Firebase
+- 📧 **Email Authentication** — Secure Email OTP login via Resend
 - 💬 **Real-time Messaging** — powered by Socket.IO
 - 📎 **Media Sharing** — Images, videos, and documents
 - 🎤 **Audio Recording** — Record and send voice notes
@@ -35,7 +35,7 @@ A modern, real-time messaging platform built with Next.js, Node.js, Socket.IO, a
 | **Backend** | Node.js, Express.js |
 | **Database** | MongoDB Atlas (via Mongoose) |
 | **Real-time** | Socket.IO |
-| **Authentication** | Firebase Phone Auth (OTP) |
+| **Authentication** | Resend Email OTP |
 | **File Storage** | Firebase Storage |
 | **Video/Audio Calls** | Native WebRTC |
 
@@ -67,17 +67,13 @@ cd Chat-Server
 ### Step 2 — Set Up Firebase
 
 You need a Firebase project for:
-1. **Phone OTP authentication** (backend uses Firebase Admin SDK)
-2. **File storage** (images, videos, documents)
+1. **File storage** (images, videos, documents, audio)
+2. **Server-side media management** (backend uses Firebase Admin SDK to delete old files)
 
 #### 2a. Create a Firebase Project
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Click **Add project** → give it a name → click **Continue**
 3. Disable Google Analytics if you don't need it → **Create project**
-
-#### 2b. Enable Phone Authentication
-1. In your project, go to **Authentication → Sign-in method**
-2. Click **Phone** → toggle **Enable** → **Save**
 
 #### 2c. Enable Firebase Storage
 1. Go to **Build → Storage** → **Get started**
@@ -134,7 +130,7 @@ MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<dbname>
 ACCESS_TOKEN_SECRET=<generate a random 64-char string>
 REFRESH_TOKEN_SECRET=<generate a different random 64-char string>
 CLIENT_URL=http://localhost:3000
-FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
+RESEND_API_KEY=re_your_api_key_here
 ```
 
 > **Tip:** Generate secure secrets quickly with this command:
@@ -142,6 +138,15 @@ FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
 > node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 > ```
 > Run it twice — once for each secret.
+
+---
+
+### Step 4.5 — Set Up Resend (For Email OTPs)
+
+1. Sign up for [Resend](https://resend.com/)
+2. Go to **API Keys** and generate a new key
+3. Add it to your `server/.env` as `RESEND_API_KEY`
+*(Note: Until you verify a domain in Resend, you can only send OTPs to your own registered email address)*
 
 ---
 

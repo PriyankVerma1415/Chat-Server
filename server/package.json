@@ -19,10 +19,9 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "firebase-admin": "^13.10.0",
-    "google-libphonenumber": "^3.2.44",
     "jsonwebtoken": "^9.0.3",
-    "libphonenumber-js": "^1.13.3",
     "mongoose": "^9.6.2",
+    "resend": "^6.12.4",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

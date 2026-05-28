@@ -30,7 +30,7 @@ const getMessages = async (req, res) => {
         select: 'message messageType mediaUrl fileName senderId isDeleted',
         populate: { path: 'senderId', select: 'username' }
       })
-      .populate('seenBy', 'username avatar phoneNumber');
+      .populate('seenBy', 'username avatar email');
 
     // Mark unread messages as read (1-on-1 chats)
     await Message.updateMany(
@@ -134,7 +134,7 @@ const getConversations = async (req, res) => {
     const conversations = await Conversation.find({
       participants: currentUserId,
     })
-      .populate('participants', 'username avatar email phoneNumber bio onlineStatus lastSeen')
+      .populate('participants', 'username avatar email bio onlineStatus lastSeen')
       .populate('lastMessage')
       .sort({ updatedAt: -1 });
 

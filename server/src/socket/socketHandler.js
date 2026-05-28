@@ -130,7 +130,7 @@ const socketHandler = (io) => {
             );
 
             // Fetch user info to send to other clients
-            const user = await User.findById(socket.user._id).select('username avatar phoneNumber');
+            const user = await User.findById(socket.user._id).select('username avatar email');
 
             // Broadcast to group members
             socket.in(groupId).emit('group_messages_read', {

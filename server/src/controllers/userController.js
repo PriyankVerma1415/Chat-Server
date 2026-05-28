@@ -38,7 +38,6 @@ const updateProfile = async (req, res) => {
 
       res.json({
         _id: updatedUser._id,
-        phoneNumber: updatedUser.phoneNumber,
         username: updatedUser.username,
         email: updatedUser.email,
         avatar: updatedUser.avatar,

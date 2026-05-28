@@ -80,9 +80,9 @@ export default function ActiveCallUI({ peer, callType, localStream, remoteStream
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 z-10">
             <Avatar className="w-32 h-32 mb-4 border-2 border-primary/20">
               <AvatarImage src={peer.avatar || undefined} />
-              <AvatarFallback className="text-4xl">{(peer.username || peer.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="text-4xl">{(peer.username || peer.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <h2 className="text-2xl font-medium text-white">{peer.username || peer.phoneNumber}</h2>
+            <h2 className="text-2xl font-medium text-white">{peer.username || peer.email}</h2>
             <p className="text-zinc-400 mt-2">{formatTime(duration)}</p>
           </div>
         )}

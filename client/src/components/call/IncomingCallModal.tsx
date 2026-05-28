@@ -19,11 +19,11 @@ export default function IncomingCallModal({ caller, callType, onAccept, onReject
           <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping scale-150" />
           <Avatar className="w-24 h-24 border-4 border-background relative z-10">
             <AvatarImage src={caller.avatar || undefined} />
-            <AvatarFallback className="text-3xl">{(caller.username || caller.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="text-3xl">{(caller.username || caller.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </div>
 
-        <h2 className="text-2xl font-bold mb-1">{caller.username || caller.phoneNumber}</h2>
+        <h2 className="text-2xl font-bold mb-1">{caller.username || caller.email}</h2>
         <p className="text-muted-foreground flex items-center gap-2 mb-8">
           {callType === 'video' ? <Video className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
           Incoming {callType} call...

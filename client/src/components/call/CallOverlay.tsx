@@ -173,7 +173,7 @@ export default function CallOverlay() {
             _id: user?._id,
             username: user?.username,
             avatar: user?.avatar,
-            phoneNumber: user?.phoneNumber
+            email: user?.email
           },
           callType: outgoingCallType
         });
@@ -240,9 +240,9 @@ export default function CallOverlay() {
           <div className="flex flex-col items-center">
             <Avatar className="w-24 h-24 mb-6 border-4 border-primary/20 animate-pulse">
               <AvatarImage src={callee.avatar || undefined} />
-              <AvatarFallback className="text-3xl">{(callee.username || callee.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="text-3xl">{(callee.username || callee.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <h2 className="text-2xl font-bold text-white mb-2">Calling {callee.username || callee.phoneNumber}...</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Calling {callee.username || callee.email}...</h2>
             <p className="text-zinc-400 mb-8 animate-pulse">Waiting for answer...</p>
             <button 
               onClick={handleEndCall}

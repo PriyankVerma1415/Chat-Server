@@ -106,10 +106,10 @@ export default function Sidebar() {
             <div className="flex items-center gap-2">
               <Avatar className="w-10 h-10">
                 <AvatarImage src={user?.avatar || undefined} />
-                <AvatarFallback>{(user?.username || user?.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(user?.username || user?.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium text-sm">{user?.username || user?.phoneNumber}</p>
+                <p className="font-medium text-sm">{user?.username || user?.email}</p>
                 <p className="text-xs text-green-500">Online</p>
               </div>
             </div>
@@ -193,10 +193,10 @@ export default function Sidebar() {
                   >
                     <Avatar>
                       <AvatarImage src={u.avatar || undefined} />
-                      <AvatarFallback>{(u.username || u.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{(u.username || u.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium text-sm">{u.username || u.phoneNumber}</p>
+                      <p className="font-medium text-sm">{u.username || u.email}</p>
                       <p className="text-xs text-muted-foreground">{u.bio || 'Available'}</p>
                     </div>
                   </div>
@@ -243,7 +243,7 @@ export default function Sidebar() {
                   } else {
                     const otherUser = conv.participants?.find((p: any) => p._id !== user?._id);
                     if (!otherUser) return null;
-                    displayName = otherUser.username || otherUser.phoneNumber;
+                    displayName = otherUser.username || otherUser.email;
                     displayAvatar = otherUser.avatar;
                     isOnline = otherUser.onlineStatus === 'online';
                   }

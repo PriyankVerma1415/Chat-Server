@@ -3,12 +3,7 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    phoneNumber: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
+
     username: {
       type: String,
       trim: true,
@@ -39,6 +34,15 @@ const userSchema = new mongoose.Schema(
     },
     refreshToken: {
       type: String,
+    },
+    authProvider: {
+      type: String,
+      default: 'resend',
+    },
+    loginMethod: {
+      type: String,
+      enum: ['email_otp', 'legacy_phone'],
+      default: 'email_otp',
     },
     tokenVersion: {
       type: Number,

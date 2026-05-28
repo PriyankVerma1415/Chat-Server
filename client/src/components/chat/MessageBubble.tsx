@@ -44,7 +44,7 @@ export default function MessageBubble({ message, isOwn, isGroup }: { message: an
         {!isOwn && isGroup && (
           <Avatar className="w-8 h-8 mb-1 shrink-0">
             <AvatarImage src={message.senderId?.avatar || undefined} />
-            <AvatarFallback className="text-xs">{(message.senderId?.username || message.senderId?.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="text-xs">{(message.senderId?.username || message.senderId?.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         )}
         <div
@@ -55,7 +55,7 @@ export default function MessageBubble({ message, isOwn, isGroup }: { message: an
           } ${isOwn && !isMedia ? 'pr-8' : ''}`}
         >
           {!isOwn && isGroup && (
-            <p className="text-xs font-semibold text-primary mb-1">{message.senderId?.username || message.senderId?.phoneNumber}</p>
+            <p className="text-xs font-semibold text-primary mb-1">{message.senderId?.username || message.senderId?.email}</p>
           )}
         <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           <DropdownMenu>
@@ -148,7 +148,7 @@ export default function MessageBubble({ message, isOwn, isGroup }: { message: an
               .map((u: any, index: number) => (
                 <Avatar key={`${u._id || 'user'}-${index}`} className="w-4 h-4 border border-background shadow-sm ring-1 ring-background/10">
                   <AvatarImage src={u.avatar || undefined} />
-                  <AvatarFallback className="text-[8px]">{(u.username || u.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="text-[8px]">{(u.username || u.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
             ))}
             {message.seenBy.filter((u: any) => u._id !== user?._id).length > 3 && (

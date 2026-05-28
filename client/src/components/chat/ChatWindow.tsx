@@ -446,10 +446,10 @@ export default function ChatWindow() {
           <DialogTrigger className="flex items-center gap-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 rounded-md transition-colors -ml-2 select-none outline-none border-none bg-transparent text-left">
             <Avatar>
               <AvatarImage src={(activeConversation?.isGroup ? activeConversation.avatar : activeUser?.avatar) || undefined} />
-              <AvatarFallback>{(activeConversation?.isGroup ? activeConversation.name : (activeUser?.username || activeUser?.phoneNumber || '?')).charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback>{(activeConversation?.isGroup ? activeConversation.name : (activeUser?.username || activeUser?.email || '?')).charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
               <div className="text-left">
-                <h3 className="font-semibold text-sm">{activeConversation?.isGroup ? activeConversation.name : (activeUser?.username || activeUser?.phoneNumber)}</h3>
+                <h3 className="font-semibold text-sm">{activeConversation?.isGroup ? activeConversation.name : (activeUser?.username || activeUser?.email)}</h3>
                 <p className="text-xs text-muted-foreground">
                   {isTyping ? "typing..." : activeConversation?.isGroup ? `${activeConversation.members?.length || 0} participants` : (activeUser?.onlineStatus === "online" ? "Online" : formatLastSeen(activeUser?.lastSeen))}
                 </p>
@@ -466,10 +466,10 @@ export default function ChatWindow() {
                 <div className="flex flex-col items-center gap-4 py-6">
                   <Avatar className="w-32 h-32">
                     <AvatarImage src={activeUser?.avatar || undefined} />
-                    <AvatarFallback className="text-5xl">{(activeUser?.username || activeUser?.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="text-5xl">{(activeUser?.username || activeUser?.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="text-center">
-                    <h2 className="text-2xl font-semibold">{activeUser?.username || activeUser?.phoneNumber}</h2>
+                    <h2 className="text-2xl font-semibold">{activeUser?.username || activeUser?.email}</h2>
                     <p className="text-muted-foreground">{activeUser?.phoneNumber}</p>
                   </div>
                 </div>
@@ -508,7 +508,7 @@ export default function ChatWindow() {
                   _id: activeUser._id,
                   username: activeUser.username,
                   avatar: activeUser.avatar,
-                  phoneNumber: activeUser.phoneNumber
+                  email: activeUser.email
                 }, 'audio');
               }
             }}
@@ -526,7 +526,7 @@ export default function ChatWindow() {
                   _id: activeUser._id,
                   username: activeUser.username,
                   avatar: activeUser.avatar,
-                  phoneNumber: activeUser.phoneNumber
+                  email: activeUser.email
                 }, 'video');
               }
             }}

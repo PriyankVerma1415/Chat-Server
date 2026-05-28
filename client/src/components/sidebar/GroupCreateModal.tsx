@@ -99,7 +99,7 @@ export default function GroupCreateModal({ open, onOpenChange }: { open: boolean
               <div className="flex flex-wrap gap-2 mb-3">
                 {selectedUsers.map(u => (
                   <div key={u._id} className="flex items-center gap-1 bg-primary/20 text-primary px-2 py-1 rounded-full text-xs">
-                    <span>{u.username || u.phoneNumber}</span>
+                    <span>{u.username || u.email}</span>
                     <button onClick={() => toggleUser(u)} className="hover:text-destructive">
                       <X className="w-3 h-3" />
                     </button>
@@ -119,10 +119,10 @@ export default function GroupCreateModal({ open, onOpenChange }: { open: boolean
                   >
                     <Avatar className="w-8 h-8">
                       <AvatarImage src={u.avatar} />
-                      <AvatarFallback>{(u.username || u.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{(u.username || u.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">{u.username || u.phoneNumber}</p>
+                      <p className="text-sm font-medium">{u.username || u.email}</p>
                     </div>
                     <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
                       {isSelected && <div className="w-2 h-2 bg-background rounded-full" />}

@@ -1,42 +1,26 @@
 const User = require('../models/User');
-const { parsePhoneNumberFromString } = require('libphonenumber-js'); // or google-libphonenumber if installed directly
-
-// Helper to normalize phone number
-const normalizePhone = (phone) => {
-  try {
-    const phoneNumber = parsePhoneNumberFromString(phone);
-    if (phoneNumber && phoneNumber.isValid()) {
-      return phoneNumber.format('E.164');
-    }
-    // Fallback basic normalization if libphonenumber fails
-    const basic = phone.replace(/[^0-9+]/g, '');
-    return basic.startsWith('+') ? basic : `+${basic}`;
-  } catch (err) {
-    return phone;
-  }
-};
 
 const syncContacts = async (req, res) => {
   try {
-    const { contacts } = req.body; // Expects array of phone number strings
+    const { contacts } = req.body; // Expects array of email strings
 
     if (!Array.isArray(contacts)) {
-      return res.status(400).json({ message: 'Contacts must be an array of phone numbers' });
+      return res.status(400).json({ message: 'Contacts must be an array of emails' });
     }
 
     // Normalize incoming contacts
-    const normalizedContacts = [...new Set(contacts.map(normalizePhone))];
+    const normalizedContacts = [...new Set(contacts.map(email => email.toLowerCase().trim()))];
 
     // Find registered users from the normalized list
     const registeredUsers = await User.find({
-      phoneNumber: { $in: normalizedContacts },
+      email: { $in: normalizedContacts },
       _id: { $ne: req.user._id } // exclude self
-    }).select('_id username phoneNumber email avatar bio lastSeen onlineStatus profileCompleted');
+    }).select('_id username email avatar bio lastSeen onlineStatus profileCompleted');
 
-    // Identify which numbers are NOT registered
-    const registeredPhones = registeredUsers.map(u => u.phoneNumber);
+    // Identify which emails are NOT registered
+    const registeredEmails = registeredUsers.map(u => u.email);
     const inviteContacts = normalizedContacts.filter(
-      phone => !registeredPhones.includes(phone) && phone !== req.user.phoneNumber
+      email => !registeredEmails.includes(email) && email !== req.user.email
     );
 
     // Save registered users as contacts for the current user

@@ -27,7 +27,7 @@ const VideoPlayer = ({ stream, isLocal, user, isVideoOff, isMuted }: { stream: M
       {(isVideoOff || !stream) ? (
         <Avatar className="w-24 h-24 sm:w-32 sm:h-32 shadow-xl border-4 border-zinc-800">
           <AvatarImage src={user?.avatar || undefined} />
-          <AvatarFallback className="text-4xl">{(user?.username || user?.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+          <AvatarFallback className="text-4xl">{(user?.username || user?.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
       ) : (
         <video
@@ -41,7 +41,7 @@ const VideoPlayer = ({ stream, isLocal, user, isVideoOff, isMuted }: { stream: M
       
       {/* Name Badge */}
       <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg flex items-center gap-2">
-        <span className="text-white text-sm font-medium">{isLocal ? "You" : (user?.username || user?.phoneNumber)}</span>
+        <span className="text-white text-sm font-medium">{isLocal ? "You" : (user?.username || user?.email)}</span>
         {isMuted && <MicOff className="w-4 h-4 text-red-400" />}
       </div>
     </div>

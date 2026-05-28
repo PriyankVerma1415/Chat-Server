@@ -74,7 +74,7 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
             <Avatar className="w-24 h-24 transition-opacity group-hover:opacity-80">
               <AvatarImage src={avatar || undefined} />
               <AvatarFallback className="text-3xl">
-                {(username || user?.phoneNumber || '?').charAt(0).toUpperCase()}
+                {(username || user?.email || '?').charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded-full transition-opacity">
@@ -102,10 +102,7 @@ export default function ProfileDialog({ open, onOpenChange }: ProfileDialogProps
                 placeholder="Your Email"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Phone Number</Label>
-              <Input value={user?.phoneNumber} disabled className="bg-secondary/50" />
-            </div>
+
           </div>
         </div>
         <div className="flex justify-end">

@@ -28,7 +28,7 @@ const createGroup = async (req, res) => {
       members
     });
 
-    const populatedGroup = await Group.findById(newGroup._id).populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen');
+    const populatedGroup = await Group.findById(newGroup._id).populate('members.user', 'username avatar email onlineStatus lastSeen');
 
     res.status(201).json(populatedGroup);
   } catch (error) {
@@ -41,7 +41,7 @@ const getGroups = async (req, res) => {
     const currentUserId = req.user._id;
 
     const groups = await Group.find({ 'members.user': currentUserId })
-      .populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen')
+      .populate('members.user', 'username avatar email onlineStatus lastSeen')
       .populate('lastMessage')
       .sort({ updatedAt: -1 });
 
@@ -67,7 +67,7 @@ const getGroupById = async (req, res) => {
   try {
     // req.group is already populated if isGroupMember is used, but we want full population
     const group = await Group.findById(req.group._id)
-      .populate('members.user', 'username avatar email phoneNumber onlineStatus bio lastSeen')
+      .populate('members.user', 'username avatar email onlineStatus bio lastSeen')
       .populate('lastMessage');
       
     res.json(group);
@@ -87,7 +87,7 @@ const updateGroup = async (req, res) => {
 
     await group.save();
     
-    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen');
+    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email onlineStatus lastSeen');
     res.json(updatedGroup);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -117,7 +117,7 @@ const addMember = async (req, res) => {
     group.members.push({ user: userId, role: 'member' });
     await group.save();
 
-    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen');
+    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email onlineStatus lastSeen');
     res.json(updatedGroup);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -132,7 +132,7 @@ const removeMember = async (req, res) => {
     group.members = group.members.filter(m => m.user.toString() !== userId.toString());
     await group.save();
 
-    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen');
+    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email onlineStatus lastSeen');
     res.json(updatedGroup);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -150,7 +150,7 @@ const promoteAdmin = async (req, res) => {
     member.role = 'admin';
     await group.save();
 
-    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen');
+    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email onlineStatus lastSeen');
     res.json(updatedGroup);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -172,7 +172,7 @@ const demoteAdmin = async (req, res) => {
     member.role = 'member';
     await group.save();
 
-    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email phoneNumber onlineStatus lastSeen');
+    const updatedGroup = await Group.findById(group._id).populate('members.user', 'username avatar email onlineStatus lastSeen');
     res.json(updatedGroup);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -194,7 +194,7 @@ const getGroupMessages = async (req, res) => {
         select: 'message messageType mediaUrl fileName senderId isDeleted',
         populate: { path: 'senderId', select: 'username' }
       })
-      .populate('seenBy', 'username avatar phoneNumber');
+      .populate('seenBy', 'username avatar email');
 
     // Basic seenBy tracking update
     await Message.updateMany(

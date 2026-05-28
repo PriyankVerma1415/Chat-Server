@@ -121,12 +121,12 @@ export default function GroupInfoPanel({ group }: { group: any }) {
             <div key={member.user._id} className="flex items-center gap-3">
               <Avatar className="w-10 h-10">
                 <AvatarImage src={member.user.avatar || undefined} />
-                <AvatarFallback>{(member.user.username || member.user.phoneNumber || '?').charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(member.user.username || member.user.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
                 <div className="flex justify-between items-center">
                   <p className="text-sm font-medium truncate">
-                    {member.user._id === user?._id ? "You" : member.user.username || member.user.phoneNumber}
+                    {member.user._id === user?._id ? "You" : member.user.username || member.user.email}
                   </p>
                   {member.role === 'admin' && (
                     <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full border border-primary/20 flex items-center gap-1">

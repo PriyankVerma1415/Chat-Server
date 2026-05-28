@@ -1,33 +1,36 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useRef, FormEvent, KeyboardEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
-import PhoneInput from "react-phone-number-input";
-import "react-phone-number-input/style.css";
-import { auth } from "@/lib/firebase";
+import { Mail, User, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import api from "@/services/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Phone, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"PHONE" | "OTP">("PHONE");
+  const [fullName, setFullName] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [step, setStep] = useState<"EMAIL" | "OTP">("EMAIL");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
 
   const router = useRouter();
   const setToken = useAuthStore((state) => state.setToken);
   const initialize = useAuthStore((state) => state.initialize);
+  
+  const otpRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -37,140 +40,103 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, [resendTimer]);
 
-  useEffect(() => {
-    console.log("[Firebase] Checking Config", {
-      apiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-    });
-
-    const setupRecaptcha = () => {
-      if (!document.getElementById("recaptcha-container")) {
-        console.error("[Firebase] recaptcha-container not found in DOM");
-        return;
-      }
-
-      try {
-        if ((window as any).recaptchaVerifier) {
-          console.log("[Firebase] Verifier exists, clearing existing instance...");
-          try {
-            (window as any).recaptchaVerifier.clear();
-          } catch (e) {
-            console.warn("[Firebase] Error clearing existing verifier", e);
-          }
-          (window as any).recaptchaVerifier = null;
-        }
-
-        console.log("[Firebase] Initializing new RecaptchaVerifier...");
-        const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-          size: "invisible",
-          callback: () => {
-            console.log("[Firebase] reCAPTCHA solved successfully");
-          },
-          "expired-callback": () => {
-            console.log("[Firebase] reCAPTCHA expired");
-            setError("reCAPTCHA expired. Please try again.");
-          }
-        });
-        
-        (window as any).recaptchaVerifier = verifier;
-        console.log("[Firebase] Verifier initialized successfully");
-      } catch (err) {
-        console.error("[Firebase] Error during RecaptchaVerifier setup:", err);
-      }
-    };
-
-    setupRecaptcha();
-
-    return () => {
-      if ((window as any).recaptchaVerifier) {
-        console.log("[Firebase] Cleaning up verifier on unmount...");
-        try {
-          (window as any).recaptchaVerifier.clear();
-        } catch (e) {
-          console.warn("[Firebase] Error during cleanup", e);
-        }
-        (window as any).recaptchaVerifier = null;
-      }
-    };
-  }, []);
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   const requestOTP = async (e?: FormEvent) => {
     if (e) e.preventDefault();
     setError("");
-    if (!phoneNumber) return setError("Please enter a valid phone number");
+
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      return setError("Please enter a valid email address.");
+    }
+    if (!fullName.trim()) {
+      return setError("Please enter your full name.");
+    }
 
     setLoading(true);
     try {
-      console.log("[Firebase] Starting signInWithPhoneNumber execution...");
-      const appVerifier = (window as any).recaptchaVerifier;
-      if (!appVerifier) {
-        throw new Error("reCAPTCHA verifier is not initialized. Please refresh the page.");
-      }
-      
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-      console.log("[Firebase] confirmationResult created successfully");
-      
-      setConfirmationResult(confirmation);
+      // Call Custom Backend to Send OTP via Resend
+      await api.post("/auth/send-otp", { email, fullName });
+
       setStep("OTP");
-      setResendTimer(60);
+      setResendTimer(300);
+      // Focus first OTP input after a slight delay to allow rendering
+      setTimeout(() => otpRefs[0].current?.focus(), 100);
     } catch (err: any) {
-      console.error("[Firebase] requestOTP Error:", err);
-      if (err.code === "auth/invalid-app-credential") {
-        setError("Invalid app credential. Please verify Firebase configuration and authorized domains.");
-      } else if (err.code === "auth/too-many-requests") {
-        setError("Too many requests. Please try again later.");
-      } else if (err.code === "auth/quota-exceeded") {
-        setError("SMS quota exceeded. Please contact support.");
-      } else if (err.code === "auth/captcha-check-failed") {
-        setError("reCAPTCHA verification failed. Please refresh the page and try again.");
+      console.error("OTP Request Error:", err);
+      if (err.response?.status === 429) {
+        setError("Too many requests. Please wait a moment and try again.");
       } else {
-        setError(err.message || "Failed to send OTP. Please try again.");
-      }
-      
-      // If error occurs, we might need to reset the verifier
-      if ((window as any).recaptchaVerifier) {
-        try {
-          (window as any).recaptchaVerifier.clear();
-          (window as any).recaptchaVerifier = null;
-          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-            size: "invisible"
-          });
-        } catch (e) {}
+        setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value !== "" && index < 5) {
+      otpRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && otp[index] === "" && index > 0) {
+      otpRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pastedData) return;
+
+    const newOtp = [...otp];
+    for (let i = 0; i < pastedData.length; i++) {
+      newOtp[i] = pastedData[i];
+    }
+    setOtp(newOtp);
+
+    if (pastedData.length === 6) {
+      otpRefs[5].current?.focus();
+    } else {
+      otpRefs[pastedData.length].current?.focus();
+    }
+  };
+
   const verifyOTP = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!otp || otp.length < 6) return setError("Please enter a valid 6-digit OTP");
-    if (!confirmationResult) return setError("Please request OTP first");
+    
+    const otpCode = otp.join("");
+    if (otpCode.length < 6) return setError("Please enter a valid 6-digit OTP");
 
     setLoading(true);
     try {
-      // 1. Verify OTP with Firebase
-      const result = await confirmationResult.confirm(otp);
-      
-      // 2. Get ID Token
-      const idToken = await result.user.getIdToken();
+      // Authenticate with custom backend
+      const { data } = await api.post("/auth/verify-otp", { 
+        email,
+        otp: otpCode,
+        fullName 
+      });
 
-      // 3. Authenticate with backend
-      const { data } = await api.post("/auth/verify-phone", { idToken, username, email });
-      
       setToken(data.token);
       await initialize();
       router.push("/chat");
     } catch (err: any) {
-      console.error(err);
-      if (err.code === "auth/invalid-verification-code") {
-        setError("Invalid OTP. Please try again.");
-      } else {
-        setError(err.response?.data?.message || "Failed to verify. Please try again.");
-      }
+      console.error("Verification Error:", err);
+      setError(err.response?.data?.message || "Failed to verify. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -178,111 +144,124 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 items-center">
-          <div className="w-24 h-24 flex items-center justify-center mb-2">
-            <Image src="/nexchat-logo.png" alt="NexChat Logo" width={96} height={96} className="object-contain rounded-2xl" priority />
+      <Card className="w-full max-w-md border-border/40 shadow-2xl">
+        <CardHeader className="flex flex-col items-center text-center space-y-2 pt-8 pb-6">
+          <div className="w-20 h-20 flex items-center justify-center mb-2">
+            <Image src="/nexchat-logo.png" alt="NexChat Logo" width={80} height={80} className="object-contain rounded-2xl" priority />
           </div>
-          <CardTitle className="text-2xl font-bold">
-            {step === "PHONE" ? "Enter your phone number" : "Verify your number"}
+          <CardTitle className="text-2xl font-bold tracking-tight text-center">
+            {step === "EMAIL" ? "Welcome to NexChat" : "Check your email"}
           </CardTitle>
           <CardDescription className="text-center">
-            {step === "PHONE" 
-              ? "We'll send an SMS with a confirmation code to verify your identity." 
-              : `We sent a 6-digit code to ${phoneNumber}`}
+            {step === "EMAIL"
+              ? "Enter your details to receive a secure login code."
+              : `We sent a 6-digit code to ${email}`}
           </CardDescription>
         </CardHeader>
-        
-        {step === "PHONE" ? (
+
+        {step === "EMAIL" ? (
           <form onSubmit={requestOTP}>
-            <CardContent className="space-y-4">
-              {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>}
-              
-              <div className="space-y-2">
+            <CardContent className="space-y-4 px-8 pb-6">
+              {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md animate-in fade-in slide-in-from-top-1">{error}</div>}
+
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Your Name (Optional)"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full"
+                  placeholder="Full Name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full h-12 pl-10 bg-background"
+                  disabled={loading}
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="email"
-                  placeholder="Email Address (Optional)"
+                  placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="space-y-2 phone-input-container">
-                {/* We use global CSS to style react-phone-number-input to match ShadCN */}
-                <PhoneInput
-                  international
-                  defaultCountry="IN"
-                  value={phoneNumber}
-                  onChange={(val) => setPhoneNumber(val || "")}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full h-12 pl-10 bg-background"
+                  disabled={loading}
                 />
               </div>
             </CardContent>
-            <CardFooter>
-              <Button className="w-full" type="submit" disabled={loading || !phoneNumber}>
-                {loading ? "Sending OTP..." : "Continue"}
-                {!loading && <ArrowRight className="ml-2 w-4 h-4" />}
+            <CardFooter className="px-8 pb-8">
+              <Button className="w-full h-12 font-medium" type="submit" disabled={loading || !email || !fullName}>
+                {loading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</>
+                ) : (
+                  <>Continue <ArrowRight className="ml-2 w-4 h-4" /></>
+                )}
               </Button>
             </CardFooter>
           </form>
         ) : (
           <form onSubmit={verifyOTP}>
-            <CardContent className="space-y-4">
-              {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>}
-              <div className="space-y-2">
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="text-center tracking-widest text-lg"
-                  required
-                />
+            <CardContent className="space-y-6 px-8 pb-6">
+              {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md animate-in fade-in slide-in-from-top-1">{error}</div>}
+              {resendTimer === 0 && (
+                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md text-center animate-in fade-in">
+                  This code is expired, kindly request for a new one.
+                </div>
+              )}
+              <div className="flex justify-between gap-2 px-2">
+                {otp.map((digit, index) => (
+                  <Input
+                    key={index}
+                    ref={otpRefs[index]}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    onPaste={handleOtpPaste}
+                    className="w-12 h-14 text-center text-xl font-bold bg-muted/50 focus:bg-background transition-colors"
+                    disabled={loading || resendTimer === 0}
+                  />
+                ))}
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
-              <Button className="w-full" type="submit" disabled={loading || otp.length < 6}>
-                {loading ? "Verifying..." : "Verify & Sign In"}
+            <CardFooter className="flex flex-col space-y-4 px-8 pb-8">
+              <Button className="w-full h-12 font-medium" type="submit" disabled={loading || resendTimer === 0 || otp.join("").length < 6}>
+                {loading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</>
+                ) : (
+                  <><ShieldCheck className="mr-2 h-4 w-4" /> Verify & Sign In</>
+                )}
               </Button>
-              <div className="text-sm text-center text-muted-foreground flex items-center justify-between w-full">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    if ((window as any).recaptchaVerifier) {
-                      try { (window as any).recaptchaVerifier.clear(); (window as any).recaptchaVerifier = null; } catch (e) {}
-                    }
-                    setStep("PHONE");
-                  }}
-                  className="hover:underline text-primary"
+              <div className="text-sm text-center text-muted-foreground flex items-center justify-between w-full px-2">
+                <button
+                  type="button"
+                  onClick={() => setStep("EMAIL")}
+                  className="hover:text-foreground transition-colors"
                   disabled={loading}
                 >
-                  Change Number
+                  Change Email
                 </button>
-                <button 
-                  type="button"
-                  onClick={() => requestOTP()}
-                  disabled={resendTimer > 0 || loading}
-                  className="hover:underline text-primary disabled:opacity-50 disabled:hover:no-underline"
-                >
-                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend OTP"}
-                </button>
+                <div className="flex items-center space-x-1.5">
+                  {resendTimer > 0 && (
+                    <span className="font-mono">{formatTime(resendTimer)}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      setOtp(["", "", "", "", "", ""]);
+                      requestOTP(e);
+                    }}
+                    disabled={resendTimer > 0 || loading}
+                    className="hover:text-foreground transition-colors disabled:opacity-50 disabled:hover:text-muted-foreground"
+                  >
+                    Resend
+                  </button>
+                </div>
               </div>
             </CardFooter>
           </form>
         )}
-        <div id="recaptcha-container"></div>
       </Card>
     </div>
   );

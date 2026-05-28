@@ -1,6 +1,8 @@
+const crypto = require('crypto');
 const User = require('../models/User');
+const Otp = require('../models/Otp');
 const jwt = require('jsonwebtoken');
-const admin = require('../config/firebaseAdmin');
+const resend = require('../config/resend');
 
 const generateAccessToken = (id) => {
   return jwt.sign({ id }, process.env.ACCESS_TOKEN_SECRET, {
@@ -19,48 +21,111 @@ const setTokenCookie = (res, token) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
 
-const verifyPhoneAuth = async (req, res) => {
+const sendOtp = async (req, res) => {
   try {
-    const { idToken, username, email } = req.body;
+    const { email, fullName } = req.body;
 
-    if (!idToken) {
-      return res.status(400).json({ message: 'Firebase ID Token is required' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
 
-    if (!admin || !admin.apps.length) {
-      return res.status(500).json({ message: 'Server configuration error: Firebase Admin not initialized' });
+    // Generate 6-digit OTP
+    const otpCode = crypto.randomInt(100000, 999999).toString();
+
+    // Delete any existing OTPs for this email to prevent spam conflicts
+    await Otp.deleteMany({ email });
+
+    // Save new OTP to database (will be hashed by pre-save hook)
+    await Otp.create({ email, otp: otpCode });
+
+    // Prepare HTML Email Template
+    const htmlTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #0f172a; color: #f8fafc; padding: 40px; border-radius: 12px; text-align: center;">
+        <img src="${process.env.CLIENT_URL}/nexchat-logo.png" alt="NexChat" width="64" height="64" style="border-radius: 16px; margin-bottom: 10px; display: inline-block;" />
+        <h1 style="color: #38bdf8; margin-bottom: 10px; margin-top: 0;">NexChat</h1>
+        <p style="font-size: 16px; color: #cbd5e1; margin-bottom: 30px;">Hello${fullName ? ` ${fullName}` : ''}, use the following security code to access your account.</p>
+        <div style="background-color: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #38bdf8;">${otpCode}</span>
+        </div>
+        <p style="font-size: 14px; color: #94a3b8; margin-bottom: 10px;">This code will expire in exactly <strong>5 minutes</strong>.</p>
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #334155;">
+          <p style="font-size: 12px; color: #475569;">© 2026 NexChat. All rights reserved.</p>
+        </div>
+      </div>
+      <div style="display: none; white-space: nowrap; font: 15px/0px courier; color: transparent;">
+        - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      </div>
+      <div style="display: none; visibility: hidden; color: transparent; font-size: 1px;">
+        Unique Request ID: ${Date.now()}-${crypto.randomBytes(4).toString('hex')}
+      </div>
+    `;
+
+    // Send email using Resend
+    const { data, error } = await resend.emails.send({
+      from: 'NexChat Security <onboarding@resend.dev>',
+      to: email,
+      subject: 'Your NexChat Verification Code',
+      html: htmlTemplate,
+    });
+
+    if (error) {
+      console.error('Resend Error:', error);
+      return res.status(400).json({ message: error.message || 'Failed to send OTP email' });
     }
 
-    // Verify token with Firebase
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const phoneNumber = decodedToken.phone_number;
+    res.status(200).json({ message: 'OTP sent successfully', success: true });
+  } catch (error) {
+    console.error('Send OTP Error:', error);
+    res.status(500).json({ message: 'Internal Server Error while sending OTP' });
+  }
+};
 
-    if (!phoneNumber) {
-      return res.status(400).json({ message: 'Invalid token: No phone number present' });
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp, fullName } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
     }
 
-    let user = await User.findOne({ phoneNumber });
+    // Find the latest OTP document for this email
+    const otpRecord = await Otp.findOne({ email }).sort({ createdAt: -1 });
+
+    if (!otpRecord) {
+      return res.status(400).json({ message: 'OTP is invalid or has expired' });
+    }
+
+    // Verify OTP using schema method (bcrypt compare)
+    const isValid = await otpRecord.verifyOtp(otp);
+
+    if (!isValid) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    // OTP is valid! Delete it immediately.
+    await Otp.deleteMany({ email });
+
+    // Upsert User
+    let user = await User.findOne({ email });
 
     if (!user) {
-      // First time login -> register
       user = await User.create({
-        phoneNumber,
-        username: username || '',
-        email: email || '',
+        email,
+        username: fullName || '',
+        authProvider: 'resend',
+        loginMethod: 'email_otp',
         lastLogin: Date.now(),
       });
     } else {
       user.lastLogin = Date.now();
-      // Optionally update username and email if provided and not yet set
-      if (username && !user.username) {
-        user.username = username;
-      }
-      if (email && !user.email) {
-        user.email = email;
+      user.authProvider = 'resend';
+      user.loginMethod = 'email_otp';
+      if (fullName && !user.username) {
+        user.username = fullName;
       }
     }
 
@@ -73,8 +138,8 @@ const verifyPhoneAuth = async (req, res) => {
     setTokenCookie(res, refreshToken);
 
     res.json({
+      success: true,
       _id: user._id,
-      phoneNumber: user.phoneNumber,
       username: user.username,
       email: user.email,
       avatar: user.avatar,
@@ -83,12 +148,8 @@ const verifyPhoneAuth = async (req, res) => {
       token: accessToken,
     });
   } catch (error) {
-    console.error('Firebase Auth Error:', error);
-    if (error.code && error.code.startsWith('auth/')) {
-      res.status(401).json({ message: 'Unauthorized: Invalid Firebase token' });
-    } else {
-      res.status(500).json({ message: error.message || 'Internal Server Error during authentication' });
-    }
+    console.error('Verify OTP Error:', error);
+    res.status(500).json({ message: 'Internal Server Error during verification' });
   }
 };
 
@@ -103,65 +164,47 @@ const refreshAuthToken = async (req, res) => {
     const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
     const user = await User.findById(decoded.id);
 
-    if (!user || user.refreshToken !== token || user.tokenVersion !== decoded.tokenVersion) {
-      return res.status(401).json({ message: 'Not authorized, invalid refresh token' });
+    if (!user || user.tokenVersion !== decoded.tokenVersion) {
+      return res.status(401).json({ message: 'Not authorized, token invalid or revoked' });
     }
 
-    // Optional Token Rotation: Generate a new refresh token every time it's used
-    user.tokenVersion += 1;
     const newAccessToken = generateAccessToken(user._id);
-    const newRefreshToken = generateRefreshToken(user._id, user.tokenVersion);
-
-    user.refreshToken = newRefreshToken;
-    await user.save();
-
-    setTokenCookie(res, newRefreshToken);
-
     res.json({ token: newAccessToken });
   } catch (error) {
-    res.status(401).json({ message: 'Not authorized, token failed' });
+    res.status(401).json({ message: 'Not authorized, refresh token failed' });
   }
 };
 
 const logoutUser = async (req, res) => {
-  const token = req.cookies.refreshToken;
-
-  if (token) {
-    try {
+  try {
+    const token = req.cookies.refreshToken;
+    if (token) {
       const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
       const user = await User.findById(decoded.id);
       
       if (user) {
-        user.refreshToken = '';
-        user.tokenVersion += 1; // Invalidate old tokens completely
+        user.tokenVersion += 1;
         await user.save();
       }
-    } catch (error) {
-      // Even if verification fails, we clear the cookie
     }
+  } catch (error) {
+    // Ignore verification errors on logout
   }
 
   res.cookie('refreshToken', '', {
     httpOnly: true,
     expires: new Date(0),
   });
-  
+
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('-refreshToken -tokenVersion -contacts -blockedUsers');
+    
     if (user) {
-      res.json({
-        _id: user._id,
-        phoneNumber: user.phoneNumber,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        bio: user.bio,
-        profileCompleted: user.profileCompleted,
-      });
+      res.json(user);
     } else {
       res.status(404).json({ message: 'User not found' });
     }
@@ -170,4 +213,4 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { verifyPhoneAuth, refreshAuthToken, logoutUser, getMe };
+module.exports = { sendOtp, verifyOtp, refreshAuthToken, logoutUser, getMe };

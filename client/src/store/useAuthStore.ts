@@ -6,7 +6,7 @@ interface User {
   _id: string;
   username: string;
   email: string;
-  phoneNumber: string;
+  
   avatar: string;
   bio: string;
   profileCompleted: boolean;
@@ -40,6 +40,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       console.error('Logout failed', e);
     }
+    
     socket.disconnect();
     set({ user: null, token: null });
   },

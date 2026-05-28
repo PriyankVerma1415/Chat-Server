@@ -4,7 +4,7 @@ export interface CallerInfo {
   _id: string;
   username: string;
   avatar?: string;
-  phoneNumber?: string;
+  
 }
 
 interface CallStore {
