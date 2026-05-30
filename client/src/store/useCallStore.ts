@@ -3,8 +3,8 @@ import { create } from 'zustand';
 export interface CallerInfo {
   _id: string;
   username: string;
+  email?: string;
   avatar?: string;
-  
 }
 
 interface CallStore {

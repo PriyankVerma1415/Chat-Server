@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { motion } from "framer-motion";
 import { Check, CheckCheck, FileText, Download, ChevronDown, Trash, Edit2, Reply, Video, Image as ImageIcon } from "lucide-react";
 import { useChatStore } from "@/store/useChatStore";
 import {
@@ -39,7 +40,12 @@ export default function MessageBubble({ message, isOwn, isGroup }: { message: an
   };
 
   return (
-    <div className={`flex flex-col mb-4 ${isOwn ? "items-end" : "items-start"}`}>
+    <motion.div 
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className={`flex flex-col mb-4 ${isOwn ? "items-end" : "items-start"}`}
+    >
       <div className={`flex items-end gap-2 max-w-[75%] ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
         {!isOwn && isGroup && (
           <Avatar className="w-8 h-8 mb-1 shrink-0">
@@ -48,10 +54,10 @@ export default function MessageBubble({ message, isOwn, isGroup }: { message: an
           </Avatar>
         )}
         <div
-          className={`group relative rounded-2xl ${isMedia ? 'p-1' : 'px-4 py-2'} ${
+          className={`group relative rounded-3xl ${isMedia ? 'p-1.5' : 'px-5 py-2.5'} ${
             isOwn
-              ? "bg-primary text-primary-foreground rounded-tr-sm"
-              : "bg-secondary text-secondary-foreground rounded-tl-sm"
+              ? "cyber-gradient text-white rounded-br-sm shadow-[0_0_15px_rgba(0,229,255,0.3)] border border-neon-cyan/20"
+              : "bg-glass-surface backdrop-blur-md text-white rounded-bl-sm border border-glass-border"
           } ${isOwn && !isMedia ? 'pr-8' : ''}`}
         >
           {!isOwn && isGroup && (
@@ -159,6 +165,6 @@ export default function MessageBubble({ message, isOwn, isGroup }: { message: an
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -436,12 +436,12 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] h-full relative">
-      <div 
-        className="absolute inset-0 z-0 opacity-50 dark:opacity-50 dark:invert pointer-events-none"
-        style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat', backgroundSize: '750px' }}
-      />
-      <div className="h-16 border-b flex items-center justify-between px-6 bg-card/80 backdrop-blur-md z-10">
+    <div className="flex-1 flex flex-col bg-[#070B14] h-full relative overflow-hidden">
+      {/* Cyber neon ambient background */}
+      <div className="absolute inset-0 z-0 bg-[url('/cyber-grid.svg')] opacity-5 bg-repeat bg-size-[32px_32px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-[50%] h-[50%] bg-neon-cyan/5 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] bg-neon-purple/5 rounded-full blur-[150px] pointer-events-none" />
+      <div className="h-16 border-b border-glass-border flex items-center justify-between px-6 bg-glass-surface backdrop-blur-xl z-10">
         <Dialog>
           <DialogTrigger className="flex items-center gap-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 rounded-md transition-colors -ml-2 select-none outline-none border-none bg-transparent text-left">
             <Avatar>
@@ -587,13 +587,13 @@ export default function ChatWindow() {
               scrollRef.current.scrollIntoView({ behavior: "smooth" });
             }
           }}
-          className="absolute bottom-24 right-6 rounded-full w-10 h-10 shadow-md bg-secondary text-foreground hover:bg-secondary/80 z-50 p-0 flex items-center justify-center border"
+          className="absolute bottom-24 right-6 rounded-full w-10 h-10 shadow-[0_0_15px_rgba(0,229,255,0.3)] bg-glass-surface backdrop-blur-md text-neon-cyan hover:bg-white/10 z-50 p-0 flex items-center justify-center border border-neon-cyan/30"
         >
           <ChevronDown className="w-6 h-6" />
         </Button>
       )}
 
-      <div className="p-3 bg-transparent z-10 relative">
+      <div className="p-4 bg-glass-surface backdrop-blur-xl border-t border-glass-border z-10 relative">
         {replyingToMessage && (
           <div className="max-w-4xl mx-auto mb-2 p-2 bg-secondary/50 rounded-lg flex items-center justify-between border-l-4 border-primary">
             <div className="flex flex-col overflow-hidden">
@@ -654,7 +654,7 @@ export default function ChatWindow() {
           </div>
         )}
 
-        <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center bg-secondary rounded-full px-2 py-1.5">
+        <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center bg-black/40 border border-glass-border rounded-2xl px-3 py-2 focus-within:border-neon-cyan focus-within:ring-1 focus-within:ring-neon-cyan transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)]">
           {!isRecording && (
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-transparent shrink-0 rounded-full h-10 w-10 outline-none">
@@ -719,7 +719,7 @@ export default function ChatWindow() {
               value={newMessage}
               onChange={typingHandler}
               placeholder="Type a message"
-              className="flex-1 bg-transparent border-none outline-none focus:ring-0 px-2 h-10 text-[15px] placeholder:text-muted-foreground/70"
+              className="flex-1 bg-transparent border-none outline-none focus:ring-0 px-3 h-10 text-[15px] placeholder:text-muted-foreground/70 text-white"
             />
           )}
           
@@ -733,8 +733,8 @@ export default function ChatWindow() {
               </Button>
             </>
           ) : newMessage.trim() && !isRecording ? (
-            <Button type="submit" size="icon" className="text-primary hover:text-primary/80 hover:bg-transparent shrink-0 rounded-full h-10 w-10 ml-1" variant="ghost">
-              <Send className="w-5 h-5" />
+            <Button type="submit" size="icon" className="cyber-gradient hover:opacity-90 neon-box-glow text-[#070B14] shrink-0 rounded-xl h-10 w-10 ml-2 transition-all">
+              <Send className="w-5 h-5 ml-0.5" />
             </Button>
           ) : isRecording ? (
             <>

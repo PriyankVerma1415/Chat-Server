@@ -1,5 +1,7 @@
 "use client";
 
+import { motion } from "framer-motion";
+
 import { useEffect, useState } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -100,8 +102,8 @@ export default function Sidebar() {
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       <GroupCreateModal open={groupCreateOpen} onOpenChange={setGroupCreateOpen} />
       
-      <div className="w-80 h-full border-r bg-card flex flex-col">
-        <div className="p-4">
+      <div className="w-80 h-full border-r border-glass-border bg-glass-surface backdrop-blur-xl flex flex-col relative z-20">
+        <div className="p-4 border-b border-glass-border/50">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Avatar className="w-10 h-10">
@@ -109,8 +111,11 @@ export default function Sidebar() {
                 <AvatarFallback>{(user?.username || user?.email || '?').charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium text-sm">{user?.username || user?.email}</p>
-                <p className="text-xs text-green-500">Online</p>
+                <p className="font-medium text-sm text-white">{user?.username || user?.email}</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-glow shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse"></span>
+                  <p className="text-xs text-emerald-glow">Online</p>
+                </div>
               </div>
             </div>
               <DropdownMenu>
@@ -138,7 +143,7 @@ export default function Sidebar() {
             <Input
               type="text"
               placeholder="Search users..."
-              className="pl-9 bg-secondary/50"
+              className="pl-9 bg-black/20 border-glass-border focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan text-white transition-all rounded-xl"
               value={search}
               onChange={handleSearch}
             />
@@ -149,30 +154,30 @@ export default function Sidebar() {
             <div className="flex items-center gap-2 mt-4 px-1 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-300 ${
                   filter === 'all' 
-                    ? 'bg-green-500/20 text-green-500 hover:bg-green-500/30' 
-                    : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                    ? 'bg-neon-cyan/20 text-neon-cyan neon-box-glow border border-neon-cyan/30' 
+                    : 'bg-black/20 text-muted-foreground hover:bg-white/5 border border-transparent'
                 }`}
               >
                 All
               </button>
               <button
                 onClick={() => setFilter('unread')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-300 ${
                   filter === 'unread' 
-                    ? 'bg-green-500/20 text-green-500 hover:bg-green-500/30' 
-                    : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                    ? 'bg-neon-purple/20 text-neon-purple neon-box-glow border border-neon-purple/30' 
+                    : 'bg-black/20 text-muted-foreground hover:bg-white/5 border border-transparent'
                 }`}
               >
                 Unread
               </button>
               <button
                 onClick={() => setFilter('groups')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-300 ${
                   filter === 'groups' 
-                    ? 'bg-green-500/20 text-green-500 hover:bg-green-500/30' 
-                    : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                    ? 'bg-electric-blue/20 text-electric-blue neon-box-glow border border-electric-blue/30' 
+                    : 'bg-black/20 text-muted-foreground hover:bg-white/5 border border-transparent'
                 }`}
               >
                 Groups
@@ -186,10 +191,12 @@ export default function Sidebar() {
             <div className="p-2">
               {searchResults.length > 0 ? (
                 searchResults.map((u) => (
-                  <div
+                  <motion.div
                     key={u._id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => handleSelectUser(u)}
-                    className="flex items-center gap-3 p-3 hover:bg-secondary/50 rounded-lg cursor-pointer transition-colors"
+                    className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-white/10"
                   >
                     <Avatar>
                       <AvatarImage src={u.avatar || undefined} />
@@ -199,7 +206,7 @@ export default function Sidebar() {
                       <p className="font-medium text-sm">{u.username || u.email}</p>
                       <p className="text-xs text-muted-foreground">{u.bio || 'Available'}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))
               ) : (
                 <p className="text-center text-sm text-muted-foreground p-4">No users found</p>
@@ -249,11 +256,15 @@ export default function Sidebar() {
                   }
 
                   return (
-                    <div
+                    <motion.div
                       key={conv._id}
                       onClick={() => handleSelectConversation(conv)}
-                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        isActive ? "bg-primary/10" : "hover:bg-secondary/50"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-300 border ${
+                        isActive 
+                          ? "bg-neon-cyan/10 border-neon-cyan/30 shadow-[0_0_15px_rgba(0,229,255,0.1)]" 
+                          : "border-transparent hover:bg-white/5 hover:border-white/10"
                       }`}
                     >
                       <div className="relative">
@@ -264,20 +275,24 @@ export default function Sidebar() {
                           </AvatarFallback>
                         </Avatar>
                         {isOnline && !conv.isGroup && (
-                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-background rounded-full"></span>
+                          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-glow border-2 border-[#0B1220] rounded-full shadow-[0_0_8px_rgba(34,197,94,0.8)] animate-pulse"></span>
                         )}
                       </div>
                       <div className="flex-1 overflow-hidden">
                         <div className="flex justify-between items-baseline">
-                          <p className="font-medium text-sm truncate">{displayName}</p>
+                          <p className={`font-medium text-sm truncate ${isActive ? 'text-neon-cyan' : 'text-white'}`}>{displayName}</p>
                           {(conv.unreadCount || 0) > 0 && (
-                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-2 shrink-0 min-w-[20px] text-center">
+                            <motion.span 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="bg-neon-purple text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-2 shrink-0 min-w-[20px] text-center shadow-[0_0_10px_rgba(139,92,246,0.6)]"
+                            >
                               {conv.unreadCount}
-                            </span>
+                            </motion.span>
                           )}
                         </div>
                         {conv.lastMessage && (
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className={`text-xs truncate mt-0.5 ${isActive ? 'text-neon-cyan/70' : 'text-muted-foreground'}`}>
                             {conv.lastMessage.messageType !== 'text' ? (
                               <span className="italic flex items-center gap-1">
                                 {conv.lastMessage.messageType}
@@ -288,7 +303,7 @@ export default function Sidebar() {
                           </p>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 });
               })()}
